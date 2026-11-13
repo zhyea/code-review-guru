@@ -1,0 +1,9 @@
+/* code-review-guru 自定义样式（与 Tailwind 产物同源加载；不写内联 <style>） */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

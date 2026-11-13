@@ -1,0 +1,75 @@
+spring:
+  application:
+    name: code-review-guru
+  profiles:
+    active: ${APP_PROFILE:default}
+  freemarker:
+    enabled: true
+    template-loader-path: classpath:/templates/
+    suffix: .ftl
+    charset: UTF-8
+    cache: false
+    expose-request-attributes: true
+    # session 属性不暴露给模板（避免误写泄露）
+    expose-session-attributes: false
+    expose-spring-macro-helpers: true
+    # 全局自动转义（HTMLOutputFormat）：模板 ${...} 默认按 HTML 转义，封堵存储型 XSS
+    settings:
+      output_format: HTMLOutputFormat
+  datasource:
+    # 默认开发档：内嵌 H2（文件型，评审记录持久化到本地 ./reviewdb.mv.db）
+    url: jdbc:h2:file:./reviewdb;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  sql:
+    init:
+      # 生产部署设 REVIEW_SQL_INIT_MODE=NEVER，由 DBA 手动执行 schema.sql 一次
+      mode: ${REVIEW_SQL_INIT_MODE:ALWAYS}
+      schema-locations: classpath:db/schema.sql
+      encoding: UTF-8
+      continue-on-error: false
+  h2:
+    console:
+      enabled: ${REVIEW_H2_CONSOLE:true}
+      path: /h2-console
+  # spring-ai：OpenAI 兼容端点。默认给占位 key —— spring-ai 的各模型自动配置在启动时会
+  # 强校验 api-key（缺 key 直接抛「OpenAI API key must be set」导致上下文起不来），占位 key
+  # 仅为满足其构造期校验。是否真正调用 AI 由服务层按「是否真实 key」自动判定（见下）。
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:sk-local-placeholder}
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+  # 只用 chat 模型做评审；排除其余 OpenAI 模型自动配置（embedding/image/audio/moderation），
+  # 它们各自解析连接属性、在无真实 key 时会在启动期抛错，与评审无关。
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration
+
+mybatis:
+  type-aliases-package: com.codeguru.review.domain
+  configuration:
+    map-underscore-to-camel-case: true
+
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+    include-exception: false
+
+app:
+  review:
+    # AI 评审模型（OpenAI 兼容端点）。
+    ai-model: ${APP_REVIEW_AI_MODEL:gpt-4o-mini}
+    # AI 开关：auto（默认）= 配置了真实（非占位）key 才启用；true = 强制启用；false = 强制关闭（只用本地规则）。
+    ai-enabled: ${APP_REVIEW_AI_ENABLED:auto}
+
+logging:
+  level:
+    com.codeguru.review: INFO
